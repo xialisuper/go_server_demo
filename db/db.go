@@ -3,8 +3,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq"  // 导入 pq 包
 
+	_ "github.com/lib/pq" // 导入 pq 包
 )
 
 type DB struct {
@@ -56,6 +56,24 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	if err != nil {
 		return Chirp{}, err
 	}
+	return chirp, nil
+
+}
+
+// GetChirpByID returns a single chirp by id
+func (db *DB) GetChirpByID(id int) (Chirp, error) {
+
+	var chirp Chirp
+
+	// 执行查询
+	err := db.DataBase.QueryRow(
+		"SELECT id, body FROM chirps WHERE id = $1",
+		id,
+	).Scan(&chirp.ID, &chirp.Body)
+	if err != nil {
+		return Chirp{}, err
+	}
+
 	return chirp, nil
 
 }

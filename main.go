@@ -21,7 +21,6 @@ func main() {
 
 	connStr := "postgresql://localhost:5432/chirps?sslmode=disable"
 
-
 	db, err := db.NewDB(connStr)
 
 	if err != nil {
@@ -41,9 +40,10 @@ func main() {
 	mux.HandleFunc("GET /api/metrics", apiConfig.metricsHandler)
 	mux.HandleFunc("GET /admin/metrics", apiConfig.handleAdminMetrics)
 	mux.HandleFunc("/api/reset", apiConfig.resetMetrics)
-	// mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+
 	mux.HandleFunc("POST /api/chirps", apiConfig.chirpsHandler)
 	mux.HandleFunc("GET /api/chirps", apiConfig.getChirpsHandler)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiConfig.getChirpByIDHandler)
 
 	fmt.Println("Server running on port 8080")
 
@@ -52,6 +52,29 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (cfg *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the chirp ID from the URL /api/chirps/{chirpID}
+	chirpID := r.PathValue("chirpID")
+
+	// Get the chirp from the database
+	chirpIDInt, err := strconv.Atoi(chirpID)
+	if err != nil {
+		// 错误处理
+		respondWithError(w, http.StatusNotFound, "invalid chirp ID")
+		return
+	}
+
+	chirp, err := cfg.db.GetChirpByID(chirpIDInt)
+
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// 200 OK
+	respondWithJSON(w, http.StatusOK, chirp)
 }
 
 func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
