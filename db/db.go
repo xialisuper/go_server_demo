@@ -1,15 +1,15 @@
 package db
 
 import (
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"os"
-	"sync"
+	_ "github.com/lib/pq"  // 导入 pq 包
+
 )
 
 type DB struct {
-	path string
-	mux  *sync.RWMutex
+	path     string
+	DataBase *sql.DB
 }
 type DBStructure struct {
 	Chirps map[int]Chirp `json:"chirps"`
@@ -24,114 +24,82 @@ type Chirp struct {
 // and creates the database file if it doesn't exist
 func NewDB(path string) (*DB, error) {
 
-	db := &DB{
-		path: path,
-		mux:  &sync.RWMutex{},
-	}
-
-	if err := db.ensureDB(); err != nil {
+	// 连接到数据库
+	db, err := sql.Open("postgres", path)
+	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("New database ready")
+	myDb := DB{
+		path:     path,
+		DataBase: db,
+	}
 
-	return db, nil
+	err = myDb.ensureDB()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &myDb, nil
 }
 
-// CreateChirp creates a new chirp and saves it to disk
+// CreateChirp creates a new chirp and saves it to database
 func (db *DB) CreateChirp(body string) (Chirp, error) {
-	db.mux.Lock()
-	defer db.mux.Unlock()
 
-	dbStructure, err := db.loadDB()
+	// 插入chirp到数据库
+	var chirp Chirp
+	err := db.DataBase.QueryRow(
+		"INSERT INTO chirps (body) VALUES ($1) RETURNING id, body",
+		body,
+	).Scan(&chirp.ID, &chirp.Body)
 	if err != nil {
 		return Chirp{}, err
 	}
-
-	chirp := Chirp{
-		ID:   len(dbStructure.Chirps) + 1,
-		Body: body,
-	}
-	dbStructure.Chirps[chirp.ID] = chirp
-
-	if err := db.writeDB(dbStructure); err != nil {
-		return Chirp{}, err
-	}
-
 	return chirp, nil
+
 }
 
 // GetChirps returns all chirps in the database
 func (db *DB) GetChirps() ([]Chirp, error) {
-	db.mux.RLock()
-	defer db.mux.RUnlock()
 
-	dbStructure, err := db.loadDB()
+	var chirps []Chirp
+
+	// 执行查询
+	rows, err := db.DataBase.Query("SELECT id, body FROM chirps")
 	if err != nil {
-		return []Chirp{}, err
+		return nil, err
 	}
+	defer rows.Close()
 
-	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
-	for _, chirp := range dbStructure.Chirps {
+	// 遍历查询结果
+	for rows.Next() {
+		var chirp Chirp
+		err = rows.Scan(&chirp.ID, &chirp.Body)
+		if err != nil {
+			return nil, err
+		}
 		chirps = append(chirps, chirp)
 	}
 
+	// 检查是否有查询错误
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return chirps, nil
+
 }
 
 // ensureDB creates a new database file if it doesn't exist
 func (db *DB) ensureDB() error {
 
-	// check if file exists
-	if _, err := os.Stat(db.path); os.IsNotExist(err) {
-		// create file
-		fmt.Println("Creating new database file")
-		f, err := os.Create(db.path)
-		if err != nil {
-			return err
-		}
-		f.Close()
-	}
-
-	return nil
-}
-
-// loadDB reads the database file into memory
-func (db *DB) loadDB() (DBStructure, error) {
-
-	// read data from file database.json
-	data, err := os.ReadFile(db.path)
-	if err != nil {
-		return DBStructure{}, err
-	}
-
-	var dbStructure DBStructure
-
-	if len(data) == 0 {
-		dbStructure = DBStructure{
-			Chirps: make(map[int]Chirp),
-		}
-		return dbStructure, nil
-	}
-
-	if err := json.Unmarshal(data, &dbStructure); err != nil {
-		return DBStructure{}, err
-	}
-
-	return dbStructure, nil
-
-}
-
-// writeDB writes the database file to disk
-func (db *DB) writeDB(dbStructure DBStructure) error {
-	data, err := json.Marshal(dbStructure)
+	// 验证连接
+	err := db.DataBase.Ping()
 	if err != nil {
 		return err
 	}
-
-	if err := os.WriteFile(db.path, data, 0644); err != nil {
-		return err
-	}
+	fmt.Println("Successfully connected to the database!")
 
 	return nil
 }

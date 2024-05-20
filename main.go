@@ -19,11 +19,16 @@ func main() {
 		Handler: mux,
 	}
 
-	db, err := db.NewDB("./db/database.json")
+	connStr := "postgresql://localhost:5432/chirps?sslmode=disable"
+
+
+	db, err := db.NewDB(connStr)
 
 	if err != nil {
 		panic(err)
 	}
+
+	defer db.DataBase.Close()
 
 	apiConfig := apiConfig{
 		fileserverHits: 0,
