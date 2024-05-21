@@ -6,6 +6,7 @@ type User struct {
 	ID       int    `json:"id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Expires  int64  `json:"expires_in_seconds"`
 }
 
 // LoginUser 登录用户
@@ -84,6 +85,25 @@ func (db *DB) GetUsers() ([]User, error) {
 	}
 
 	return users, nil
+}
+
+func (db *DB) UpdateUser(id int, email string, password string) (User, error) {
+	var user User
+	hashedPassword, err := GenerateFromPassword(password)
+	if err != nil {
+		return User{}, err
+	}
+	err = db.DataBase.QueryRow(
+		"UPDATE users SET email = $1, password = $2 WHERE id = $3 RETURNING id, email",
+		email,
+		hashedPassword,
+		id,
+	).Scan(&user.ID, &user.Email)
+	if err != nil {
+		return User{}, err
+	}
+
+	return user, nil
 }
 
 // GenerateFromPassword  hash password

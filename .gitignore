@@ -24,4 +24,5 @@ go.work.sum
 __debug*
 
 database.json
-.vscode/settings.json
+.vscode
+.env

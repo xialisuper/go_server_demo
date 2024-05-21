@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func (cfg *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
 	// Get the chirp ID from the URL /api/chirps/{chirpID}
 	chirpID := r.PathValue("chirpID")
 
@@ -33,7 +33,7 @@ func (cfg *apiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request
 	respondWithJSON(w, http.StatusOK, chirp)
 }
 
-func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	// Get all chirps from the database
 	chirps, err := cfg.db.GetChirps()
 
@@ -46,7 +46,7 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
-func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var chirp db.Chirp
 	err := json.NewDecoder(r.Body).Decode(&chirp)

@@ -5,8 +5,9 @@ import (
 	"sync"
 )
 
-type apiConfig struct {
+type ApiConfig struct {
 	fileserverHits int
 	mu             sync.Mutex
 	db             db.DB
+	JwtSecret      string
 }

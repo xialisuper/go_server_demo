@@ -4,11 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"server/db"
 	"sync"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load environment variables from.env file
+	godotenv.Load()
+	fmt.Println("Starting server...")
+
 	mux := http.NewServeMux()
 	server := http.Server{
 		Addr:    ":8080",
@@ -25,10 +32,11 @@ func main() {
 
 	defer db.DataBase.Close()
 
-	apiConfig := apiConfig{
+	apiConfig := ApiConfig{
 		fileserverHits: 0,
 		mu:             sync.Mutex{},
 		db:             *db,
+		JwtSecret:      os.Getenv("JWT_SECRET"),
 	}
 
 	mux.Handle("/app/*", http.StripPrefix("/app", apiConfig.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
@@ -44,7 +52,8 @@ func main() {
 	mux.HandleFunc("POST /api/users", apiConfig.CreateUserHandler)
 	//  LOGIN POST /api/login
 	mux.HandleFunc("POST /api/login", apiConfig.LoginUserHandler)
-
+	// PUT /api/users
+	mux.HandleFunc("PUT /api/users", apiConfig.UpdateUserHandler)
 
 	fmt.Println("Server running on port 8080")
 
@@ -54,31 +63,33 @@ func main() {
 		panic(err)
 	}
 }
+
 // respondWithError 函数接收一个 http.ResponseWriter 对象、状态码和消息作为参数，
 // 设置响应头的 Content-Type 为 application/json; charset=utf-8，
 // 设置状态码并返回错误信息的 JSON 格式。
 func respondWithError(w http.ResponseWriter, code int, msg string) {
- w.Header().Set("Content-Type", "application/json; charset=utf-8")
- w.WriteHeader(code)
- w.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, msg)))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	w.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, msg)))
+
 }
 
 // respondWithJSON 函数接收一个 http.ResponseWriter 对象、状态码以及一个任意类型的数据作为参数，
 // 设置响应头的 Content-Type 为 application/json; charset=utf-8，
 // 设置状态码，将数据转换为 JSON 格式并返回。
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) error {
- w.Header().Set("Content-Type", "application/json; charset=utf-8")
- w.WriteHeader(code)
- data, err := json.Marshal(payload)
- if err != nil {
-  return err
- }
- w.Write(data)
- return nil
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	w.Write(data)
+	return nil
 }
 
 // middlewareMetricsInc increments the fileserverHits counter for each request
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+func (cfg *ApiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.mu.Lock()
 		cfg.fileserverHits += 1
