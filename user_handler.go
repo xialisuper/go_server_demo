@@ -17,7 +17,7 @@ func (cfg *apiConfig) CreateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// create user in database
-	user, err = cfg.db.CreateUser(user.Email)
+	user, err = cfg.db.CreateUser(user.Email, user.Password)
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())

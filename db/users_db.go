@@ -1,17 +1,29 @@
 package db
 
+import "golang.org/x/crypto/bcrypt"
+
 type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
+	ID       int    `json:"id"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // CreateUser 创建一个新用户并保存至数据库
-func (db *DB) CreateUser(email string) (User, error) {
+func (db *DB) CreateUser(email string, password string) (User, error) {
 	var user User
-	err := db.DataBase.QueryRow(
-		"INSERT INTO users (email) VALUES ($1) RETURNING id, email",
+
+	hashedPassword, err := GenerateFromPassword(password)
+
+	if err != nil {
+		return User{}, err
+	}
+
+	err = db.DataBase.QueryRow(
+		"INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email, password",
 		email,
-	).Scan(&user.ID, &user.Email)
+		hashedPassword,
+	).Scan(&user.ID, &user.Email, &user.Password)
+	
 	if err != nil {
 		return User{}, err
 	}
@@ -53,4 +65,10 @@ func (db *DB) GetUsers() ([]User, error) {
 	}
 
 	return users, nil
+}
+
+// user bcrypt.GenerateFromPassword function to hash password
+func GenerateFromPassword(password string) ([]byte, error) {
+
+	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 }
