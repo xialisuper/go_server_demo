@@ -42,6 +42,9 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiConfig.getChirpByIDHandler)
 
 	mux.HandleFunc("POST /api/users", apiConfig.CreateUserHandler)
+	//  LOGIN POST /api/login
+	mux.HandleFunc("POST /api/login", apiConfig.LoginUserHandler)
+
 
 	fmt.Println("Server running on port 8080")
 
