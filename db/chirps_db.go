@@ -8,6 +8,46 @@ type Chirp struct {
 	AuthID int    `json:"author_id"`
 }
 
+// GetChirpsByAuthorID returns all chirps by author id
+func (db *DB) GetChirpsByAuthorID(userID int, sort string) ([]Chirp, error) {
+	if sort == "desc" {
+		sort = "DESC"
+	} else {
+		sort = "ASC"
+	}
+
+	var chirps []Chirp
+
+	// 执行查询 并以Continue sorting the chirps by id in "sort" order.
+	rows, err := db.DataBase.Query(
+		"SELECT id, body, author_id FROM chirps WHERE author_id = $1 ORDER BY id "+sort,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// 遍历查询结果
+	for rows.Next() {
+		var chirp Chirp
+		err = rows.Scan(&chirp.ID, &chirp.Body, &chirp.AuthID)
+		if err != nil {
+			return nil, err
+		}
+		chirps = append(chirps, chirp)
+	}
+
+	// 检查是否有查询错误
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return chirps, nil
+
+}
+
 // DeleteChirpByID deletes a single chirp by id
 func (db *DB) DeleteChirpByID(id int, userID int) error {
 	// 执行删除
@@ -64,12 +104,20 @@ func (db *DB) GetChirpByID(id int) (Chirp, error) {
 }
 
 // GetChirps returns all chirps in the database
-func (db *DB) GetChirps() ([]Chirp, error) {
+func (db *DB) GetChirps(sort string) ([]Chirp, error) {
+
+	if sort == "desc" {
+		sort = "DESC"
+	} else {
+		sort = "ASC"
+	}
 
 	var chirps []Chirp
 
-	// 执行查询
-	rows, err := db.DataBase.Query("SELECT id, body, author_id FROM chirps")
+	// 执行查询 并以Continue sorting the chirps by id in "sort" order.
+	rows, err := db.DataBase.Query(
+		"SELECT id, body, author_id FROM chirps ORDER BY id "+sort,
+	)
 	if err != nil {
 		return nil, err
 	}

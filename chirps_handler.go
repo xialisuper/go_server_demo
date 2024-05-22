@@ -34,8 +34,39 @@ func (cfg *ApiConfig) getChirpByIDHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (cfg *ApiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+
+	// userID is a string that contains the value of the author_id query parameter
+	userID := r.URL.Query().Get("author_id")
+
+	// check the sort order query parameter
+	sortOrder := r.URL.Query().Get("sort")
+
+	// if it exists
+	if userID != "" {
+		// convert the string to an integer
+		userIDInt, err := strconv.Atoi(userID)
+
+		if err != nil {
+			// 错误处理
+			respondWithError(w, http.StatusNotFound, "invalid author ID")
+			return
+		}
+
+		// Get all chirps by the specified author
+		chirps, err := cfg.db.GetChirpsByAuthorID(userIDInt, sortOrder)
+
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		// 200 OK
+		respondWithJSON(w, http.StatusOK, chirps)
+		return
+	}
+
 	// Get all chirps from the database
-	chirps, err := cfg.db.GetChirps()
+	chirps, err := cfg.db.GetChirps(sortOrder)
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -60,8 +91,7 @@ func (cfg *ApiConfig) deleteChirpByIDHandler(w http.ResponseWriter, r *http.Requ
 
 	userID := r.Context().Value(userIDKey).(int)
 
-
-	err = cfg.db.DeleteChirpByID(chirpIDInt ,userID)
+	err = cfg.db.DeleteChirpByID(chirpIDInt, userID)
 
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, err.Error())
