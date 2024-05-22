@@ -10,6 +10,48 @@ import (
 	"time"
 )
 
+type Event struct {
+	Event string `json:"event"`
+	Data  Data   `json:"data"`
+}
+
+type Data struct {
+	UserID int `json:"user_id"`
+}
+
+// PolkaWebhookHandler
+func (cfg *ApiConfig) PolkaWebhookHandler(w http.ResponseWriter, r *http.Request) {
+	// get event data from request body
+	var event Event
+	err := json.NewDecoder(r.Body).Decode(&event)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// handle event
+	switch event.Event {
+	// case "user_created":
+	// do something when user created
+	case "user.upgraded":
+
+		// update is_chirpy_red to true in  database
+		err = cfg.db.UpdateIsChirpyRed(event.Data.UserID)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+	default:
+		// do something when event not found
+		respondWithError(w, http.StatusNotFound, "event not found")
+		return
+	}
+
+	// return 204
+	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
 // RevokeTokenHandler
 func (cfg *ApiConfig) RevokeTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// 从请求头中获取refresh token

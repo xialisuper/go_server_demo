@@ -79,6 +79,8 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", apiConfig.RevokeTokenHandler)
 	// DELETE /api/chirps/{chirpID}
 	mux.Handle("DELETE /api/chirps/{chirpID}", apiConfig.authenticationMiddleware(http.HandlerFunc(apiConfig.deleteChirpByIDHandler)))
+	// POST /API/POLKA/WEBHOOKS
+	mux.HandleFunc("POST /api/polka/webhooks", apiConfig.PolkaWebhookHandler)
 
 	fmt.Println("Server running on port 8080")
 

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -11,7 +12,8 @@ type User struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	// token 是refresh token 并不是jwt token
-	Token string `json:"refresh_token"`
+	Token       string `json:"refresh_token"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 // RevokeToken 废除refresh token
@@ -50,6 +52,26 @@ func (db *DB) SaveToken(userID int, refreshToken string, expire_time time.Time) 
 	return nil
 }
 
+// UpdateIsChirpyRed  更新用户是否是红包狂
+func (db *DB) UpdateIsChirpyRed(userID int) error {
+
+	result, err := db.DataBase.Exec("UPDATE users SET is_chirpy_red = $1 WHERE id = $2", true, userID)
+	if err != nil {
+		return err
+	}
+
+	// 检查受影响的行数
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no user found with id %d", userID)
+	}
+
+	return nil
+}
+
 // func (db *DB) DeleteRefreshToken(userID int, refreshToken string) error {
 // 	_, err := db.DataBase.Exec("DELETE FROM users WHERE id = $1 AND refresh_token = $2", userID, refreshToken)
 // 	if err != nil {
@@ -62,9 +84,9 @@ func (db *DB) SaveToken(userID int, refreshToken string, expire_time time.Time) 
 func (db *DB) LoginUser(email string, password string) (User, error) {
 	var user User
 	err := db.DataBase.QueryRow(
-		"SELECT id, email, password FROM users WHERE email = $1",
+		"SELECT id, email, password, is_chirpy_red FROM users WHERE email = $1",
 		email,
-	).Scan(&user.ID, &user.Email, &user.Password)
+	).Scan(&user.ID, &user.Email, &user.Password, &user.IsChirpyRed)
 	if err != nil {
 		return User{}, err
 	}
