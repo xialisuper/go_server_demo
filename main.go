@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"server/db"
+	"strconv"
 	"sync"
 
 	"github.com/joho/godotenv"
@@ -32,11 +33,27 @@ func main() {
 
 	defer db.DataBase.Close()
 
+	jwtExpireSecStr := os.Getenv("JWT_EXPIRE_SECONDS")
+	jwtExpireSec, err := strconv.ParseInt(jwtExpireSecStr, 10, 64)
+	if err != nil {
+		// 在这里处理转换错误
+		panic(err)
+	}
+
+	userFreshTokenExpireSecStr := os.Getenv("USER_REFRESH_TOKEN_EXPIRE_SECONDS")
+	userFreshTokenExpireSec, err := strconv.ParseInt(userFreshTokenExpireSecStr, 10, 64)
+	if err != nil {
+		// 在这里处理转换错误
+		panic(err)
+	}
+
 	apiConfig := ApiConfig{
-		fileserverHits: 0,
-		mu:             sync.Mutex{},
-		db:             *db,
-		JwtSecret:      os.Getenv("JWT_SECRET"),
+		fileserverHits:          0,
+		mu:                      sync.Mutex{},
+		db:                      *db,
+		JwtSecret:               os.Getenv("JWT_SECRET"),
+		JwtExpireSec:            jwtExpireSec,
+		UserFreshTokenExpireSec: userFreshTokenExpireSec,
 	}
 
 	mux.Handle("/app/*", http.StripPrefix("/app", apiConfig.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
@@ -54,6 +71,10 @@ func main() {
 	mux.HandleFunc("POST /api/login", apiConfig.LoginUserHandler)
 	// PUT /api/users
 	mux.HandleFunc("PUT /api/users", apiConfig.UpdateUserHandler)
+	// POST /api/refresh
+	mux.HandleFunc("POST /api/refresh", apiConfig.RefreshTokenHandler)
+	// POST /api/revoke
+	mux.HandleFunc("POST /api/revoke", apiConfig.RevokeTokenHandler)
 
 	fmt.Println("Server running on port 8080")
 

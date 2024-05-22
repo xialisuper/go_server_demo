@@ -1,13 +1,62 @@
 package db
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"time"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 type User struct {
 	ID       int    `json:"id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Expires  int64  `json:"expires_in_seconds"`
+	// token 是refresh token 并不是jwt token
+	Token string `json:"refresh_token"`
 }
+
+// RevokeToken 废除refresh token
+func (db *DB) RevokeToken(refreshToken string) error {
+	_, err := db.DataBase.Exec("UPDATE users SET refresh_token = NULL, refresh_token_expire_time = NULL WHERE refresh_token = $1", refreshToken)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CheckRefreshTokenIsValid 检查refresh token是否有效
+func (db *DB) CheckRefreshTokenIsValid(refreshToken string) (int, error) {
+
+	var userID int
+	err := db.DataBase.QueryRow(
+		"SELECT id FROM users WHERE refresh_token = $1",
+		refreshToken,
+	).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return userID, nil
+}
+
+// SaveToken 保存refresh token
+func (db *DB) SaveToken(userID int, refreshToken string, expire_time time.Time) error {
+	// 查找出id对应的用户 更新 refresh_token and refresh_token_expire_time
+	_, err := db.DataBase.Exec("UPDATE users SET refresh_token = $1, refresh_token_expire_time = $2 WHERE id = $3", refreshToken, expire_time, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// func (db *DB) DeleteRefreshToken(userID int, refreshToken string) error {
+// 	_, err := db.DataBase.Exec("DELETE FROM users WHERE id = $1 AND refresh_token = $2", userID, refreshToken)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 // LoginUser 登录用户
 func (db *DB) LoginUser(email string, password string) (User, error) {

@@ -2,14 +2,65 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log"
 	"net/http"
 	"server/db"
 	"server/jwt"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// RevokeTokenHandler
+func (cfg *ApiConfig) RevokeTokenHandler(w http.ResponseWriter, r *http.Request) {
+	// 从请求头中获取refresh token
+	refreshToken, err := getTokenFromHeader(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	
+	// revoke refresh token in database
+	err = cfg.db.RevokeToken(refreshToken)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// return 204
+	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
+// RefreshTokenHandler
+func (cfg *ApiConfig) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	// 从请求头中获取refresh token
+	refreshToken, err := getTokenFromHeader(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// check refresh token in database
+	userID, err := cfg.db.CheckRefreshTokenIsValid(refreshToken)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// generate JWT token
+	token, err := jwt.CreateJwtToken(strconv.Itoa(userID), cfg.JwtSecret, cfg.JwtExpireSec)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// return JWT token
+	resJson := make(map[string]string)
+	resJson["token"] = token
+	respondWithJSON(w, http.StatusOK, resJson)
+
+}
 
 func (cfg *ApiConfig) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -43,7 +94,7 @@ func (cfg *ApiConfig) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// login user in database
+	// check user password in database
 	user, err = cfg.db.LoginUser(user.Email, user.Password)
 
 	if err != nil {
@@ -52,21 +103,34 @@ func (cfg *ApiConfig) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// generate JWT token
-
-	if user.Expires == 0 {
-		user.Expires = 60 * 60 * 24 * 30 // 30 days
-	}
-
-	token, err := jwt.CreateJwtToken(strconv.Itoa(int(user.ID)), user.Expires, cfg.JwtSecret)
+	token, err := jwt.CreateJwtToken(strconv.Itoa(int(user.ID)), cfg.JwtSecret, cfg.JwtExpireSec)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// generate refresh token
+	refreshToken, err := jwt.GenerateRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	// return JWT token and user data
 	resJson := make(map[string]interface{})
 	resJson["token"] = token
 	resJson["user"] = user
+	resJson["refresh_token"] = refreshToken
+
+	// save refresh token in database
+	// refresh token expiration time to set to 60 days by default
+
+	expire_time := time.Now().Add(time.Duration(cfg.UserFreshTokenExpireSec) * time.Second)
+	err = cfg.db.SaveToken(user.ID, refreshToken, expire_time)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	respondWithJSON(w, http.StatusOK, resJson)
 
@@ -84,20 +148,11 @@ func (cfg *ApiConfig) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// get jwt from header
-	// header "Authorization: Bearer <token>"
 	// 从请求头中获取Bearer token
-	authHeader := r.Header.Get("Authorization")
-	tokenParts := strings.Split(authHeader, " ")
-	var token string
-
-	if len(tokenParts) == 2 && tokenParts[0] == "Bearer" {
-		token = tokenParts[1]
-		fmt.Println("Bearer token:", token)
-	} else {
-		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+	token, err := getTokenFromHeader(r)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
-
 	}
 
 	// parse JWT token  claims is user id
@@ -124,4 +179,20 @@ func (cfg *ApiConfig) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJSON(w, http.StatusOK, user)
 
+}
+
+// getUserFromToken
+// header "Authorization: Bearer <token>"
+func getTokenFromHeader(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	tokenParts := strings.Split(authHeader, " ")
+	var token string
+
+	if len(tokenParts) == 2 && tokenParts[0] == "Bearer" {
+		token = tokenParts[1]
+		return token, nil
+
+	}
+
+	return "", errors.New("invalid token")
 }

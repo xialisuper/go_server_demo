@@ -5,8 +5,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 )
+// expire time is 1 hour
 
-func CreateJwtToken(userId string, expireTimeInSec int64, jwtSecret string) (string, error) {
+
+func CreateJwtToken(userId string, jwtSecret string, expireTimeInSec int64) (string, error) {
 
 	// expireTime
 	expire := time.Now().Add(time.Duration(expireTimeInSec) * time.Second)
