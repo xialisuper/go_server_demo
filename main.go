@@ -80,7 +80,7 @@ func main() {
 	// DELETE /api/chirps/{chirpID}
 	mux.Handle("DELETE /api/chirps/{chirpID}", apiConfig.authenticationMiddleware(http.HandlerFunc(apiConfig.deleteChirpByIDHandler)))
 	// POST /API/POLKA/WEBHOOKS
-	mux.HandleFunc("POST /api/polka/webhooks", apiConfig.PolkaWebhookHandler)
+	mux.Handle("POST /api/polka/webhooks", apiConfig.authenticationPolkaWebhookMiddleware(http.HandlerFunc(apiConfig.PolkaWebhookHandler)))
 
 	fmt.Println("Server running on port 8080")
 
@@ -127,6 +127,34 @@ func (cfg *ApiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r) // 继续处理请求
 	})
+}
+
+// authenticationPolkaWebhookMiddleware function to check if the polka webhook is authenticated
+func (cfg *ApiConfig) authenticationPolkaWebhookMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// get token from header
+		key, err := GetPolkaApiKeyFromHeader(r)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		// validate key with polka api key
+		apiKey := os.Getenv("POLKA_API_KEY")
+		
+		if key != apiKey {
+			respondWithError(w, http.StatusUnauthorized, "Invalid polka api key")
+			return
+		}
+
+		// Otherwise, continue with the request
+		fmt.Println("polka webhook authenticated")
+
+		next.ServeHTTP(w, r)
+
+	})
+
 }
 
 type contextKey string

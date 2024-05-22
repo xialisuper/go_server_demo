@@ -22,5 +22,16 @@ func GetTokenFromHeader(r *http.Request) (string, error) {
 	return "", errors.New("invalid token")
 }
 
+func GetPolkaApiKeyFromHeader(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	keyParts := strings.Split(authHeader, " ")
+	var apiKey string
 
+	if len(keyParts) == 2 && keyParts[0] == "ApiKey" {
+		apiKey = keyParts[1]
+		return apiKey, nil
 
+	}
+
+	return "", errors.New("invalid api key")
+}
