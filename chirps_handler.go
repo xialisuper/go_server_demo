@@ -46,6 +46,32 @@ func (cfg *ApiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
+func (cfg *ApiConfig) deleteChirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the chirp ID from the URL /api/chirps/{chirpID}
+	chirpID := r.PathValue("chirpID")
+
+	// Delete the chirp from the database
+	chirpIDInt, err := strconv.Atoi(chirpID)
+	if err != nil {
+		// 错误处理
+		respondWithError(w, http.StatusNotFound, "invalid chirp ID")
+		return
+	}
+
+	userID := r.Context().Value(userIDKey).(int)
+
+
+	err = cfg.db.DeleteChirpByID(chirpIDInt ,userID)
+
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	// 204 No Content
+	respondWithJSON(w, http.StatusNoContent, nil)
+}
+
 func (cfg *ApiConfig) CreateChirpHandler(w http.ResponseWriter, r *http.Request) {
 
 	var chirp db.Chirp
@@ -67,7 +93,6 @@ func (cfg *ApiConfig) CreateChirpHandler(w http.ResponseWriter, r *http.Request)
 
 	//  use r.context.Value("userID") instead of parsing the JWT token again
 	userID := r.Context().Value(userIDKey).(int)
-
 
 	// Save the chirp to the database
 	newChirp, err := cfg.db.CreateChirp(validatedChirp.Body, userID)

@@ -1,9 +1,31 @@
 package db
 
+import "fmt"
+
 type Chirp struct {
 	ID     int    `json:"id"`
 	Body   string `json:"body"`
 	AuthID int    `json:"author_id"`
+}
+
+// DeleteChirpByID deletes a single chirp by id
+func (db *DB) DeleteChirpByID(id int, userID int) error {
+	// 执行删除
+	result, err := db.DataBase.Exec("DELETE FROM chirps WHERE id = $1 AND author_id = $2", id, userID)
+	if err != nil {
+		return err
+	}
+
+	// 检查受影响的行数
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no chirp found with id %d for user %d", id, userID)
+	}
+
+	return nil
 }
 
 // CreateChirp creates a new chirp and saves it to database

@@ -77,6 +77,8 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", apiConfig.RefreshTokenHandler)
 	// POST /api/revoke
 	mux.HandleFunc("POST /api/revoke", apiConfig.RevokeTokenHandler)
+	// DELETE /api/chirps/{chirpID}
+	mux.Handle("DELETE /api/chirps/{chirpID}", apiConfig.authenticationMiddleware(http.HandlerFunc(apiConfig.deleteChirpByIDHandler)))
 
 	fmt.Println("Server running on port 8080")
 
@@ -128,7 +130,6 @@ func (cfg *ApiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 type contextKey string
 
 const userIDKey contextKey = "userID"
-
 
 // auth middleware function to check if the user is authenticated
 func (cfg *ApiConfig) authenticationMiddleware(next http.Handler) http.Handler {
