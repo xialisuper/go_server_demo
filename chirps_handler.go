@@ -46,7 +46,7 @@ func (cfg *ApiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
-func (cfg *ApiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) CreateChirpHandler(w http.ResponseWriter, r *http.Request) {
 
 	var chirp db.Chirp
 	err := json.NewDecoder(r.Body).Decode(&chirp)
@@ -65,8 +65,12 @@ func (cfg *ApiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusBadRequest, err.Error())
 	}
 
+	//  use r.context.Value("userID") instead of parsing the JWT token again
+	userID := r.Context().Value(userIDKey).(int)
+
+
 	// Save the chirp to the database
-	newChirp, err := cfg.db.CreateChirp(validatedChirp.Body)
+	newChirp, err := cfg.db.CreateChirp(validatedChirp.Body, userID)
 
 	if err != nil {
 

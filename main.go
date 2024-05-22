@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"server/db"
+	"server/jwt"
 	"strconv"
 	"sync"
 
@@ -62,7 +64,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiConfig.handleAdminMetrics)
 	mux.HandleFunc("/api/reset", apiConfig.resetMetrics)
 
-	mux.HandleFunc("POST /api/chirps", apiConfig.chirpsHandler)
+	mux.Handle("POST /api/chirps", apiConfig.authenticationMiddleware(http.HandlerFunc(apiConfig.CreateChirpHandler)))
 	mux.HandleFunc("GET /api/chirps", apiConfig.getChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiConfig.getChirpByIDHandler)
 
@@ -120,6 +122,56 @@ func (cfg *ApiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 		fmt.Println("Fileserver Hits:", cfg.fileserverHits)
 
 		next.ServeHTTP(w, r) // 继续处理请求
+	})
+}
+
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
+
+// auth middleware function to check if the user is authenticated
+func (cfg *ApiConfig) authenticationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// get token from header
+		token, err := GetTokenFromHeader(r)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		// validate token
+
+		userIDStr, err := jwt.VerifyJwtToken(token, cfg.JwtSecret)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+
+		// convert the user id from string to int
+		userID, err := strconv.Atoi(userIDStr)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+		// check if the user exists in the database
+
+		_, err = cfg.db.GetUserByID(userID)
+		if err != nil {
+			respondWithError(w, http.StatusUnauthorized, "User not found")
+			return
+		}
+
+		// Otherwise, continue with the request
+		fmt.Println("user authenticated, user id:", userID)
+
+		// save user id in the request context
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, userIDKey, userID)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
 	})
 }
 

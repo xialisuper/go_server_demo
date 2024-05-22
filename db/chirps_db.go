@@ -1,21 +1,21 @@
 package db
 
-
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID     int    `json:"id"`
+	Body   string `json:"body"`
+	AuthID int    `json:"author_id"`
 }
 
-
 // CreateChirp creates a new chirp and saves it to database
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(body string, userID int) (Chirp, error) {
 
 	// 插入chirp到数据库
 	var chirp Chirp
 	err := db.DataBase.QueryRow(
-		"INSERT INTO chirps (body) VALUES ($1) RETURNING id, body",
-		body,
-	).Scan(&chirp.ID, &chirp.Body)
+		// "INSERT INTO chirps (body) VALUES ($1) RETURNING id, body",
+		"INSERT INTO chirps (body, author_id) VALUES ($1, $2) RETURNING id, body, author_id",
+		body, userID,
+	).Scan(&chirp.ID, &chirp.Body, &chirp.AuthID)
 	if err != nil {
 		return Chirp{}, err
 	}
@@ -30,9 +30,9 @@ func (db *DB) GetChirpByID(id int) (Chirp, error) {
 
 	// 执行查询
 	err := db.DataBase.QueryRow(
-		"SELECT id, body FROM chirps WHERE id = $1",
+		"SELECT id, body, author_id FROM chirps WHERE id = $1",
 		id,
-	).Scan(&chirp.ID, &chirp.Body)
+	).Scan(&chirp.ID, &chirp.Body, &chirp.AuthID)
 	if err != nil {
 		return Chirp{}, err
 	}
@@ -47,7 +47,7 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	var chirps []Chirp
 
 	// 执行查询
-	rows, err := db.DataBase.Query("SELECT id, body FROM chirps")
+	rows, err := db.DataBase.Query("SELECT id, body, author_id FROM chirps")
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (db *DB) GetChirps() ([]Chirp, error) {
 	// 遍历查询结果
 	for rows.Next() {
 		var chirp Chirp
-		err = rows.Scan(&chirp.ID, &chirp.Body)
+		err = rows.Scan(&chirp.ID, &chirp.Body, &chirp.AuthID)
 		if err != nil {
 			return nil, err
 		}

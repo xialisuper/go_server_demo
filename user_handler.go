@@ -2,26 +2,23 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"server/db"
 	"server/jwt"
 	"strconv"
-	"strings"
 	"time"
 )
 
 // RevokeTokenHandler
 func (cfg *ApiConfig) RevokeTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// 从请求头中获取refresh token
-	refreshToken, err := getTokenFromHeader(r)
+	refreshToken, err := GetTokenFromHeader(r)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	
 	// revoke refresh token in database
 	err = cfg.db.RevokeToken(refreshToken)
 	if err != nil {
@@ -35,7 +32,7 @@ func (cfg *ApiConfig) RevokeTokenHandler(w http.ResponseWriter, r *http.Request)
 // RefreshTokenHandler
 func (cfg *ApiConfig) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	// 从请求头中获取refresh token
-	refreshToken, err := getTokenFromHeader(r)
+	refreshToken, err := GetTokenFromHeader(r)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -149,7 +146,7 @@ func (cfg *ApiConfig) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 从请求头中获取Bearer token
-	token, err := getTokenFromHeader(r)
+	token, err := GetTokenFromHeader(r)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
@@ -179,20 +176,4 @@ func (cfg *ApiConfig) UpdateUserHandler(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJSON(w, http.StatusOK, user)
 
-}
-
-// getUserFromToken
-// header "Authorization: Bearer <token>"
-func getTokenFromHeader(r *http.Request) (string, error) {
-	authHeader := r.Header.Get("Authorization")
-	tokenParts := strings.Split(authHeader, " ")
-	var token string
-
-	if len(tokenParts) == 2 && tokenParts[0] == "Bearer" {
-		token = tokenParts[1]
-		return token, nil
-
-	}
-
-	return "", errors.New("invalid token")
 }
